@@ -1,0 +1,1473 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Misi Angkasa: Pengaturcaraan & Algoritma</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Canvas Confetti -->
+    <script src="https://cdn.jsdelivr.com/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;800&family=Rajdhani:wght@500;600;700&family=Inter:wght@300;400;600&display=swap');
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #030712;
+            color: #f3f4f6;
+            overflow-x: hidden;
+            user-select: none;
+        }
+
+        .font-orbitron { font-family: 'Orbitron', sans-serif; }
+        .font-rajdhani { font-family: 'Rajdhani', sans-serif; }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: rgba(15, 23, 42, 0.6); }
+        ::-webkit-scrollbar-thumb { background: #3b82f6; border-radius: 4px; }
+
+        /* Orbital Keyframes */
+        @keyframes orbit {
+            from { transform: rotate(0deg) translateX(70px) rotate(0deg); }
+            to { transform: rotate(360deg) translateX(70px) rotate(-360deg); }
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0px) rotate(0deg); }
+            50% { transform: translateY(-10px) rotate(2deg); }
+        }
+
+        @keyframes pulse-glow {
+            0%, 100% { filter: drop-shadow(0 0 10px rgba(59, 130, 246, 0.8)); }
+            50% { filter: drop-shadow(0 0 25px rgba(147, 51, 234, 0.9)); }
+        }
+
+        .animate-float {
+            animation: float 4s ease-in-out infinite;
+        }
+
+        .orbit-item {
+            position: absolute;
+            top: calc(50% - 18px);
+            left: calc(50% - 18px);
+            animation: orbit linear infinite;
+        }
+
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.75);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+        }
+
+        .glass-modal {
+            background: rgba(10, 15, 30, 0.92);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+        }
+
+        /* Drag and drop styling */
+        .draggable-item {
+            cursor: grab;
+            transition: all 0.2s ease;
+        }
+        .draggable-item:active {
+            cursor: grabbing;
+            opacity: 0.8;
+            transform: scale(0.98);
+        }
+        .drag-over {
+            border-color: #3b82f6 !important;
+            background: rgba(59, 130, 246, 0.2) !important;
+        }
+    </style>
+</head>
+<body class="relative min-h-screen w-full flex flex-col justify-between overflow-hidden text-slate-100">
+
+    <!-- Space Background Canvas -->
+    <canvas id="spaceCanvas" class="fixed inset-0 w-full h-full -z-10 pointer-events-none"></canvas>
+
+    <!-- Header Navigation -->
+    <header class="w-full glass-panel z-20 px-4 py-3 flex flex-wrap items-center justify-between gap-4 border-b border-slate-800">
+        <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-indigo-600/30 border border-indigo-400 flex items-center justify-center text-indigo-400 text-xl font-bold font-orbitron">
+                <i class="fa-solid fa-rocket animate-pulse"></i>
+            </div>
+            <div>
+                <h1 id="appTitle" class="text-lg md:text-xl font-extrabold font-orbitron tracking-wide bg-gradient-to-r from-cyan-400 via-blue-400 to-indigo-400 bg-clip-text text-transparent">
+                    Tugasan & Bug Hunting
+                </h1>
+                <p class="text-xs text-slate-400 font-rajdhani font-semibold">Misi Algoritma Angkasa Lepas</p>
+            </div>
+        </div>
+
+        <!-- Phase Selector Tabs -->
+        <div class="flex items-center bg-slate-900/80 p-1 rounded-xl border border-slate-700/60">
+            <button id="btnPhase1" onclick="switchPhase(1)" class="px-4 py-2 rounded-lg text-xs md:text-sm font-semibold transition-all duration-300 flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg">
+                <i class="fa-solid fa-bug"></i>
+                <span>Fasa 1: Bug Hunting</span>
+            </button>
+            <button id="btnPhase2" onclick="switchPhase(2)" class="px-4 py-2 rounded-lg text-xs md:text-sm font-semibold transition-all duration-300 flex items-center gap-2 text-slate-400 hover:text-white">
+                <i class="fa-solid fa-wrench"></i>
+                <span>Fasa 2: Penambahbaikan & Pembentangan</span>
+            </button>
+        </div>
+
+        <!-- Right Tools Header -->
+        <div class="flex items-center gap-2">
+            <button onclick="openAddGroupModal()" class="px-3 py-2 rounded-xl bg-emerald-600/30 hover:bg-emerald-600/50 border border-emerald-500/50 text-emerald-300 text-xs md:text-sm font-bold flex items-center gap-2 transition-all duration-300 active:scale-95">
+                <i class="fa-solid fa-user-plus"></i>
+                <span>Tambah Kumpulan</span>
+            </button>
+            <button onclick="toggleWheelDrawer()" class="px-3 py-2 rounded-xl bg-purple-600/30 hover:bg-purple-600/50 border border-purple-500/50 text-purple-300 text-xs md:text-sm font-bold flex items-center gap-2 transition-all duration-300 active:scale-95">
+                <i class="fa-solid fa-dharmachakra"></i>
+                <span>Roda Impian</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Space Universe (Group Avatars Display) -->
+    <main id="mainUniverse" class="relative flex-1 w-full p-6 flex flex-wrap items-center justify-center gap-12 md:gap-16 overflow-y-auto z-10 min-h-[500px]">
+        <!-- Dynamic Group Avatars with Orbiting Tasks will render here -->
+    </main>
+
+    <!-- Roda Impian (Wheel) Drawer / Overlay -->
+    <div id="wheelDrawer" class="fixed inset-0 bg-black/70 backdrop-blur-md z-40 flex items-center justify-center opacity-0 pointer-events-none transition-all duration-300">
+        <div class="glass-modal w-11/12 max-w-4xl rounded-3xl p-6 relative border border-purple-500/40 shadow-2xl flex flex-col md:flex-row gap-6 items-center">
+            <button onclick="toggleWheelDrawer()" class="absolute top-4 right-4 w-9 h-9 rounded-full bg-slate-800 text-slate-300 hover:text-white hover:bg-red-600/80 transition-all flex items-center justify-center">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+
+            <!-- Wheel Controls Left Side -->
+            <div class="w-full md:w-1/2 flex flex-col gap-4">
+                <div>
+                    <span class="text-xs font-bold text-purple-400 font-orbitron uppercase tracking-wider">Tugasan Rawak</span>
+                    <h2 class="text-2xl font-black font-orbitron text-white">Roda Impian Algoritma</h2>
+                    <p class="text-xs text-slate-300 mt-1">Pilih kumpulan terlebih dahulu sebelum memutarkan roda tugasan.</p>
+                </div>
+
+                <div class="flex flex-col gap-1.5">
+                    <label class="text-xs font-semibold text-slate-300">Pilih Kumpulan Sasaran:</label>
+                    <select id="selectGroupForWheel" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-slate-200 focus:outline-none focus:border-purple-500">
+                        <!-- Options generated dynamically -->
+                    </select>
+                </div>
+
+                <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-800">
+                    <div class="flex items-center justify-between text-xs font-semibold text-slate-400 mb-2">
+                        <span>Senarai Tugasan Aktif</span>
+                        <span id="taskCountBadge" class="bg-purple-900/60 text-purple-300 px-2 py-0.5 rounded-full text-[10px]">6 Tugasan</span>
+                    </div>
+                    <ul id="wheelTaskList" class="space-y-1.5 max-h-36 overflow-y-auto text-xs">
+                        <!-- Tasks list -->
+                    </ul>
+                </div>
+
+                <div class="flex gap-2">
+                    <button id="btnSpinWheel" onclick="spinWheel()" class="flex-1 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold font-orbitron rounded-xl shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-rotate text-lg"></i>
+                        <span>Putar Roda</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Canvas Wheel Right Side -->
+            <div class="w-full md:w-1/2 flex flex-col items-center justify-center relative">
+                <div class="absolute -top-3 z-10 text-amber-400 text-3xl filter drop-shadow-md">
+                    <i class="fa-solid fa-caret-down"></i>
+                </div>
+                <canvas id="wheelCanvas" width="320" height="320" class="max-w-full h-auto drop-shadow-[0_0_20px_rgba(168,85,247,0.3)]"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Tambah Kumpulan -->
+    <div id="addGroupModal" class="fixed inset-0 bg-black/75 backdrop-blur-md z-50 flex items-center justify-center opacity-0 pointer-events-none transition-all duration-300">
+        <div class="glass-modal w-11/12 max-w-md rounded-2xl p-6 relative border border-emerald-500/40">
+            <button onclick="closeAddGroupModal()" class="absolute top-4 right-4 w-8 h-8 rounded-full bg-slate-800 text-slate-300 hover:text-white hover:bg-red-600/80 flex items-center justify-center">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+            <h3 class="text-xl font-bold font-orbitron text-emerald-400 mb-4 flex items-center gap-2">
+                <i class="fa-solid fa-user-plus"></i> Tambah Kumpulan Baru
+            </h3>
+            
+            <form onsubmit="handleAddGroupSubmit(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1">Nama Kumpulan</label>
+                    <input type="text" id="inputGroupName" required placeholder="Cth: Kumpulan Galaksi 1" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-emerald-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1">Ahli Kumpulan (Pisahkan dengan koma)</label>
+                    <input type="text" id="inputGroupMembers" placeholder="Cth: Ali, Ahmad, Siti, Mei Ling" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-emerald-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-2">Pilih Wakil / Maskot Angkasa</label>
+                    <div class="grid grid-cols-3 gap-3" id="avatarSelector">
+                        <!-- Options generated by JS -->
+                    </div>
+                </div>
+                <button type="submit" class="w-full py-2.5 mt-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold font-orbitron rounded-xl shadow-lg transition-all">
+                    Cipta Kumpulan
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: Task Card Interactive (Phase 1 & Phase 2) -->
+    <div id="taskModal" class="fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-center justify-center opacity-0 pointer-events-none transition-all duration-300 p-2 md:p-6">
+        <div class="glass-modal w-full max-w-5xl h-[90vh] rounded-3xl p-4 md:p-6 relative border border-cyan-500/40 flex flex-col justify-between shadow-2xl overflow-hidden">
+            
+            <!-- Modal Header -->
+            <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+                <div class="flex items-center gap-3">
+                    <span id="taskModalBadge" class="px-3 py-1 rounded-full text-xs font-bold font-orbitron bg-cyan-900/60 text-cyan-300 border border-cyan-500/40">
+                        Pseudokod Jujukan
+                    </span>
+                    <h2 id="taskModalTitle" class="text-base md:text-xl font-bold font-orbitron text-white">
+                        Tugasan
+                    </h2>
+                </div>
+                <button onclick="closeTaskModal()" class="w-9 h-9 rounded-full bg-slate-800 text-slate-300 hover:text-white hover:bg-red-600/80 flex items-center justify-center transition-all">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+
+            <!-- Modal Content (Two Columns) -->
+            <div class="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4 py-4 overflow-hidden">
+                
+                <!-- Left Column: Simulation Animation Canvas -->
+                <div class="bg-slate-950/80 rounded-2xl border border-slate-800 p-3 flex flex-col items-center justify-between relative overflow-hidden">
+                    <div class="w-full flex justify-between items-center text-xs text-slate-400 font-rajdhani font-semibold mb-2">
+                        <span><i class="fa-solid fa-display mr-1"></i> Visualisasi Percubaan Simulasi</span>
+                        <span id="simStatus" class="text-amber-400">Status: Bersedia</span>
+                    </div>
+                    
+                    <!-- SVG Simulation Dynamic Canvas -->
+                    <div id="simulationContainer" class="w-full flex-1 flex items-center justify-center bg-slate-900/50 rounded-xl border border-slate-800/80 relative overflow-hidden min-h-[200px]">
+                        <!-- Dynamic SVG / HTML Animation loaded by JS -->
+                    </div>
+
+                    <div id="simulationFeedback" class="w-full text-center text-xs py-2 px-3 rounded-lg mt-2 font-mono bg-slate-900/80 text-slate-300 border border-slate-800">
+                        Klik pada ralat kod di sebelah kanan untuk menyelesaikannya.
+                    </div>
+                </div>
+
+                <!-- Right Column: Code Bug Hunter (Phase 1) OR Drag Block Repair (Phase 2) -->
+                <div class="bg-slate-950/80 rounded-2xl border border-slate-800 p-3 flex flex-col justify-between overflow-hidden">
+                    
+                    <!-- Phase 1 View: Code Lines / Flowchart Nodes Clickable -->
+                    <div id="phase1CodeContainer" class="flex-1 flex flex-col overflow-hidden">
+                        <div class="text-xs font-semibold text-slate-400 mb-2 flex justify-between items-center">
+                            <span><i class="fa-solid fa-code text-cyan-400 mr-1"></i> Kenal pasti 2 Ralat (Bug):</span>
+                            <span class="text-[11px] text-cyan-300 bg-cyan-950/80 border border-cyan-800/50 px-2 py-0.5 rounded">Klik pada blok/baris yang mempunyai ralat</span>
+                        </div>
+                        <div id="codeLinesList" class="flex-1 overflow-y-auto space-y-2 font-mono text-xs md:text-sm pr-1">
+                            <!-- Rendered by JS (Text / SVG Flowchart Elements) -->
+                        </div>
+                    </div>
+
+                    <!-- Phase 2 View: Interactive Repair UI -->
+                    <div id="phase2CodeContainer" class="flex-1 flex flex-col overflow-hidden hidden">
+                        <div class="text-xs font-semibold text-slate-400 mb-2 flex justify-between items-center">
+                            <span><i class="fa-solid fa-cubes text-purple-400 mr-1"></i> Penambahbaikan Algoritma:</span>
+                            <span class="text-[11px] text-purple-300 bg-purple-950/80 border border-purple-800/50 px-2 py-0.5 rounded">Susun & Kemaskini Simbol Piawai</span>
+                        </div>
+                        <div id="dragBlocksList" class="flex-1 overflow-y-auto space-y-2 pr-1">
+                            <!-- Drag items & Flowchart Shape selectors rendered by JS -->
+                        </div>
+                    </div>
+
+                    <!-- Bottom Action Controls -->
+                    <div class="pt-3 border-t border-slate-800 flex items-center justify-between gap-2 mt-2">
+                        <!-- Phase 1 Buttons -->
+                        <div id="phase1Buttons" class="w-full flex gap-2">
+                            <button onclick="submitPhase1Bugs()" class="w-full py-2.5 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold font-orbitron rounded-xl shadow-lg transition-all flex items-center justify-center gap-2">
+                                <i class="fa-solid fa-bug"></i>
+                                <span>Hantar Jawapan</span>
+                            </button>
+                        </div>
+
+                        <!-- Phase 2 Buttons -->
+                        <div id="phase2Buttons" class="w-full flex gap-2 hidden">
+                            <button onclick="resetPhase2Blocks()" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs rounded-xl transition-all flex items-center gap-1">
+                                <i class="fa-solid fa-rotate-left"></i>
+                                <span>Semula</span>
+                            </button>
+                            <button onclick="showHintModal()" class="px-3 py-2 bg-amber-600/30 hover:bg-amber-600/50 text-amber-300 border border-amber-500/40 font-semibold text-xs rounded-xl transition-all flex items-center gap-1">
+                                <i class="fa-solid fa-lightbulb"></i>
+                                <span>Petunjuk</span>
+                            </button>
+                            <button onclick="testPhase2Blocks()" class="flex-1 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold font-orbitron text-xs md:text-sm rounded-xl shadow-lg transition-all flex items-center justify-center gap-2">
+                                <i class="fa-solid fa-play"></i>
+                                <span>Uji Algoritma</span>
+                            </button>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Modal: Petunjuk (Hint) -->
+    <div id="hintModal" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center opacity-0 pointer-events-none transition-all duration-300">
+        <div class="glass-modal w-11/12 max-w-md rounded-2xl p-5 relative border border-amber-500/40">
+            <button onclick="closeHintModal()" class="absolute top-3 right-3 w-7 h-7 rounded-full bg-slate-800 text-slate-300 hover:text-white flex items-center justify-center">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+            <h3 class="text-lg font-bold font-orbitron text-amber-400 mb-2 flex items-center gap-2">
+                <i class="fa-solid fa-lightbulb"></i> Petunjuk Misi
+            </h3>
+            <p id="hintText" class="text-sm text-slate-200 leading-relaxed bg-slate-900/80 p-3 rounded-xl border border-slate-800">
+                Petunjuk akan dipaparkan di sini.
+            </p>
+            <button onclick="closeHintModal()" class="w-full py-2 mt-4 bg-amber-600 hover:bg-amber-500 text-white font-bold rounded-xl text-xs uppercase tracking-wider font-orbitron">
+                Faham
+            </button>
+        </div>
+    </div>
+
+    <!-- Notification Toast -->
+    <div id="toast" class="fixed bottom-6 right-6 z-50 transition-all duration-300 transform translate-y-10 opacity-0 pointer-events-none">
+        <div id="toastBody" class="glass-panel px-4 py-3 rounded-2xl shadow-2xl border flex items-center gap-3 text-sm">
+            <i id="toastIcon" class="fa-solid fa-circle-info text-xl"></i>
+            <span id="toastMessage" class="font-medium">Notifikasi</span>
+        </div>
+    </div>
+
+    <!-- JavaScript Logic -->
+    <script>
+        /* ==========================================================================
+           1. STATE MANAGEMENT & DATA DEFINITIONS
+           ========================================================================== */
+        
+        let currentPhase = 1;
+        let groups = [
+            {
+                id: 'g1',
+                name: 'Kumpulan Alpha',
+                members: 'Ahmad, Siti, John',
+                avatar: 'planet',
+                assignedTasks: []
+            },
+            {
+                id: 'g2',
+                name: 'Kumpulan Nebula',
+                members: 'Mei Ling, Muthu, Ray',
+                avatar: 'astronaut',
+                assignedTasks: []
+            }
+        ];
+
+        const AVATARS = {
+            planet: { name: 'Utarid & Cincin', icon: '<svg viewBox="0 0 100 100" class="w-full h-full"><circle cx="50" cy="50" r="30" fill="#3b82f6"/><ellipse cx="50" cy="50" rx="45" ry="12" fill="none" stroke="#60a5fa" stroke-width="4" transform="rotate(-20 50 50)"/><circle cx="40" cy="40" r="6" fill="#60a5fa" opacity="0.4"/></svg>' },
+            astronaut: { name: 'Angkasawan', icon: '<svg viewBox="0 0 100 100" class="w-full h-full"><circle cx="50" cy="35" r="22" fill="#e2e8f0"/><path d="M 30 35 Q 50 20 70 35 Q 50 50 30 35" fill="#f59e0b"/><rect x="35" y="55" width="30" height="35" rx="8" fill="#cbd5e1"/><rect x="42" y="62" width="16" height="12" rx="3" fill="#3b82f6"/></svg>' },
+            dog: { name: 'Anjing Angkasa', icon: '<svg viewBox="0 0 100 100" class="w-full h-full"><circle cx="50" cy="50" r="35" fill="#e0e7ff" opacity="0.3"/><circle cx="50" cy="48" r="22" fill="#d97706"/><circle cx="42" cy="42" r="3" fill="#000"/><circle cx="58" cy="42" r="3" fill="#000"/><ellipse cx="50" cy="52" rx="5" ry="3" fill="#000"/><path d="M 30 30 L 22 18 L 36 24 Z" fill="#b45309"/><path d="M 70 30 L 78 18 L 64 24 Z" fill="#b45309"/></svg>' },
+            rocket: { name: 'Roket Supersonik', icon: '<svg viewBox="0 0 100 100" class="w-full h-full"><path d="M 50 15 Q 70 45 65 75 L 35 75 Q 30 45 50 15 Z" fill="#ef4444"/><circle cx="50" cy="45" r="8" fill="#38bdf8"/><path d="M 35 75 L 20 90 L 35 85 Z" fill="#dc2626"/><path d="M 65 75 L 80 90 L 65 85 Z" fill="#dc2626"/><polygon points="45,75 55,75 50,95" fill="#f59e0b"/></svg>' },
+            alien: { name: 'Alien Comel', icon: '<svg viewBox="0 0 100 100" class="w-full h-full"><circle cx="50" cy="52" r="26" fill="#10b981"/><circle cx="38" cy="48" r="7" fill="#fff"/><circle cx="62" cy="48" r="7" fill="#fff"/><circle cx="38" cy="48" r="3" fill="#000"/><circle cx="62" cy="48" r="3" fill="#000"/><path d="M 42 62 Q 50 68 58 62" stroke="#000" stroke-width="2" fill="none"/><line x1="38" y1="26" x2="30" y2="12" stroke="#10b981" stroke-width="3"/><circle cx="30" cy="12" r="4" fill="#34d399"/><line x1="62" y1="26" x2="70" y2="12" stroke="#10b981" stroke-width="3"/><circle cx="70" cy="12" r="4" fill="#34d399"/></svg>' },
+            satellite: { name: 'Satelit Stesen', icon: '<svg viewBox="0 0 100 100" class="w-full h-full"><rect x="42" y="38" width="16" height="24" rx="3" fill="#94a3b8"/><rect x="10" y="42" width="28" height="16" fill="#0284c7" stroke="#38bdf8" stroke-width="1"/><rect x="62" y="42" width="28" height="16" fill="#0284c7" stroke="#38bdf8" stroke-width="1"/><line x1="50" y1="38" x2="50" y2="18" stroke="#cbd5e1" stroke-width="2"/><circle cx="50" cy="16" r="4" fill="#ef4444"/></svg>' }
+        };
+
+        const CELESTIAL_OBJECTS = [
+            { type: 'komet', name: 'Komet', icon: 'fa-comet', color: 'text-cyan-400' },
+            { type: 'bulan', name: 'Bulan', icon: 'fa-moon', color: 'text-amber-300' },
+            { type: 'satelit', name: 'Satelit', icon: 'fa-satellite', color: 'text-purple-400' },
+            { type: 'asteroid', name: 'Asteroid', icon: 'fa-meteor', color: 'text-rose-400' },
+            { type: 'bintang', name: 'Bintang', icon: 'fa-star', color: 'text-yellow-300' },
+            { type: 'planet-kecil', name: 'Planet kerdil', icon: 'fa-globe', color: 'text-emerald-400' }
+        ];
+
+        // Detailed Tasks Master Dataset according to prompt requirements
+        let tasks = [
+            {
+                id: 't1',
+                title: 'Pseudokod · Jujukan — Pelancaran Roket',
+                category: 'Pseudokod Jujukan',
+                type: 'pseudocode',
+                bugCount: 2,
+                codeLines: [
+                    { id: 1, text: '1 MULA', isBug: false },
+                    { id: 2, text: '2 Periksa tangki bahan api', isBug: false },
+                    { id: 3, text: '3 Tekan butang lancar', isBug: true, note: 'Ralat 1: Butang lancar ditekan terlalu awal sebelum kira detik' },
+                    { id: 4, text: '4 Kira detik 3, 2, 1', isBug: false },
+                    { id: 5, text: '5 Hidupkan enjin', isBug: true, note: 'Ralat 2: Enjin dihidupkan terlalu lewat, sepatutnya sebelum kira detik' },
+                    { id: 6, text: '6 Roket terbang', isBug: false },
+                    { id: 7, text: '7 TAMAT', isBug: false }
+                ],
+                correctBlocksOrder: [
+                    'MULA',
+                    'Periksa tangki bahan api',
+                    'Hidupkan enjin',
+                    'Kira detik 3, 2, 1',
+                    'Tekan butang lancar',
+                    'Roket terbang',
+                    'TAMAT'
+                ],
+                hint: 'Enjin mesti dihidupkan sebelum kira detik; butang lancar hanya ditekan selepas kira detik selesai.'
+            },
+            {
+                id: 't2',
+                title: 'Pseudokod · Pilihan — Taman Hijau di Marikh',
+                category: 'Pseudokod Pilihan',
+                type: 'pseudocode_selectors',
+                bugCount: 2,
+                codeLines: [
+                    { id: 1, text: '1 MULA', isBug: false },
+                    { id: 2, text: '2 Baca kelembapan tanah', isBug: false },
+                    { id: 3, text: '3 JIKA tanah basah MAKA', isBug: true, note: 'Ralat 1: Syarat terbalik, tanah basah tidak perlu disiram' },
+                    { id: 4, text: '4     Hidupkan pam air', isBug: false },
+                    { id: 5, text: '5 JIKA TIDAK', isBug: false },
+                    { id: 6, text: '6     Hidupkan pam air', isBug: true, note: 'Ralat 2: Cabang JIKA TIDAK sepatutnya Matikan pam air' },
+                    { id: 7, text: '7 TAMAT-JIKA', isBug: false },
+                    { id: 8, text: '8 TAMAT', isBug: false }
+                ],
+                correctBlocksOrder: [
+                    'MULA',
+                    'Baca kelembapan tanah',
+                    'JIKA tanah kering MAKA',
+                    '    Hidupkan pam air',
+                    'JIKA TIDAK',
+                    '    Matikan pam air',
+                    'TAMAT-JIKA',
+                    'TAMAT'
+                ],
+                hint: 'Tanah perlu disiram jika "tanah kering". Jika tanah tidak kering, tindakan sepatutnya "Matikan pam air".'
+            },
+            {
+                id: 't3',
+                title: 'Pseudokod · Ulangan — Mengisi Botol Minuman',
+                category: 'Pseudokod Ulangan',
+                type: 'pseudocode',
+                bugCount: 2,
+                codeLines: [
+                    { id: 1, text: '1 MULA', isBug: false },
+                    { id: 2, text: '2 Isipadu = 0', isBug: false },
+                    { id: 3, text: '3 SELAGI Isipadu > 100 ULANG', isBug: true, note: 'Ralat 1: Syarat terbalik, gelung tidak berjalan kerana Isipadu awal = 0' },
+                    { id: 4, text: '4     Tuang air 20ml', isBug: false },
+                    { id: 5, text: '5     Isipadu = Isipadu - 20', isBug: true, note: 'Ralat 2: Isipadu berkurang bukannya bertambah' },
+                    { id: 6, text: '6 TAMAT-SELAGI', isBug: false },
+                    { id: 7, text: '7 TAMAT', isBug: false }
+                ],
+                correctBlocksOrder: [
+                    'MULA',
+                    'Isipadu = 0',
+                    'SELAGI Isipadu < 100 ULANG',
+                    '    Tuang air 20ml',
+                    '    Isipadu = Isipadu + 20',
+                    'TAMAT-SELAGI',
+                    'TAMAT'
+                ],
+                hint: 'Gelung berjalan SELAGI Isipadu < 100 dan Isipadu mesti bertambah (+ 20) setiap tuangan.'
+            },
+            {
+                id: 't4',
+                title: 'Carta Alir · Jujukan — Rover Meneroka Planet',
+                category: 'Carta Alir Jujukan',
+                type: 'flowchart_symbols',
+                bugCount: 2,
+                codeLines: [
+                    { id: 1, text: '[Mula (Bentuk Segi Empat Process)]', isBug: true, note: 'Ralat 2: Mula menggunakan simbol Rect (Process), sepatutnya Terminal Oval' },
+                    { id: 2, text: '↓', isBug: false },
+                    { id: 3, text: '[Hidupkan rover]', isBug: false },
+                    { id: 4, text: '↓', isBug: false },
+                    { id: 5, text: '[Ambil sampel batu]', isBug: true, note: 'Ralat 1: Ambil sampel batu sebelum imbas permukaan planet' },
+                    { id: 6, text: '↓', isBug: false },
+                    { id: 7, text: '[Imbas permukaan planet]', isBug: false },
+                    { id: 8, text: '↓', isBug: false },
+                    { id: 9, text: '[Hantar data ke Bumi]', isBug: false },
+                    { id: 10, text: '↓', isBug: false },
+                    { id: 11, text: '[Tamat (Oval Terminal)]', isBug: false }
+                ],
+                correctBlocksOrder: [
+                    'Mula (Terminal Oval)',
+                    'Hidupkan rover',
+                    'Imbas permukaan planet',
+                    'Ambil sampel batu',
+                    'Hantar data ke Bumi',
+                    'Tamat (Terminal Oval)'
+                ],
+                hint: 'Simbol Mula mesti bujur/oval. Rover mesti Imbas permukaan planet sebelum Ambil sampel batu.'
+            },
+            {
+                id: 't5',
+                title: 'Carta Alir · Pilihan — Pintu Automatik Stesen Angkasa',
+                category: 'Carta Alir Pilihan',
+                type: 'flowchart_decision',
+                bugCount: 2,
+                codeLines: [
+                    { id: 1, text: '[Mula]', isBug: false },
+                    { id: 2, text: '↓', isBug: false },
+                    { id: 3, text: '[Imbas angkasawan]', isBug: false },
+                    { id: 4, text: '↓', isBug: false },
+                    { id: 5, text: '[Angkasawan dikesan?] (Bentuk Segi Empat)', isBug: true, note: 'Ralat 1: Langkah keputusan menggunakan simbol Segi Empat (Process) bukannya Rhombus' },
+                    { id: 6, text: '├── (Ya) ➔ [Buka pintu] ➔ [Tamat]', isBug: false },
+                    { id: 7, text: '└── (Ya) ➔ [Pintu kekal tertutup] ➔ [Tamat]', isBug: true, note: 'Ralat 2: Kedua-dua cabangan berlabel "Ya", cabang kedua sepatutnya "Tidak"' }
+                ],
+                correctBlocksOrder: [
+                    'Mula (Oval)',
+                    'Imbas angkasawan',
+                    '<Angkasawan dikesan?> (Rhombus)',
+                    'Branch 1: Ya -> Buka pintu -> Tamat',
+                    'Branch 2: Tidak -> Pintu kekal tertutup -> Tamat'
+                ],
+                hint: 'Gunakan simbol Rhombus/Berlian untuk soalan keputusan, dan tukar label cabangan kedua kepada "Tidak".'
+            },
+            {
+                id: 't6',
+                title: 'Carta Alir · Ulangan — Minum Air Angkasawan',
+                category: 'Carta Alir Ulangan',
+                type: 'flowchart_loop',
+                bugCount: 2,
+                codeLines: [
+                    { id: 1, text: '[Mula]', isBug: false },
+                    { id: 2, text: '↓', isBug: false },
+                    { id: 3, text: '[Masih Dahaga?] (Bentuk Segi Empat)', isBug: true, note: 'Ralat 1: Keputusan syarat menggunakan simbol Segi Empat bukannya Rhombus' },
+                    { id: 4, text: '├── (Tidak) ➔ [Minum 1 Teguk] ➔ Loop Kembali', isBug: true, note: 'Ralat 2: Cabangan terbalik - jika Tidak dahaga sepatutnya Tamat, jika Ya sepatutnya Minum 1 Teguk' },
+                    { id: 5, text: '└── (Ya) ➔ [Tamat]', isBug: false }
+                ],
+                correctBlocksOrder: [
+                    'Mula (Oval)',
+                    '<Masih Dahaga?> (Rhombus)',
+                    '  (Ya) -> [Minum 1 teguk] -> (Ulang semak)',
+                    '  (Tidak) -> [Tamat (Oval)]'
+                ],
+                hint: 'Semakan syarat mestilah bentuk Rhombus. Cabangan "Ya" harus minum air dan ulang semak; "Tidak" terus ke Tamat.'
+            }
+        ];
+
+        let activeGroupId = null;
+        let activeTaskId = null;
+        let selectedBugLineIds = [];
+        let draggedBlockIndex = null;
+        let activeTaskBlocks = [];
+        
+        // Task 2, 5, 6 custom interactive state
+        let task2Selectors = { condition: 'tanah basah', elseAction: 'Hidupkan pam air' };
+        let task4Symbol = 'rect'; // 'rect' vs 'oval'
+        let task5State = { symbol: 'rect', label2: 'Ya' };
+        let task6State = { symbol: 'rect', branchLogic: 'reversed' };
+
+        /* ==========================================================================
+           2. AUDIO SYNTHESIZER (Web Audio API)
+           ========================================================================== */
+        const AudioFX = {
+            ctx: null,
+            init() {
+                if (!this.ctx) {
+                    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+            },
+            playSuccess() {
+                this.init();
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(523.25, now);
+                osc.frequency.exponentialRampToValueAtTime(880, now + 0.3);
+                gain.gain.setValueAtTime(0.3, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.4);
+            },
+            playError() {
+                this.init();
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(180, now);
+                osc.frequency.linearRampToValueAtTime(110, now + 0.25);
+                gain.gain.setValueAtTime(0.3, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.3);
+            },
+            playSpin() {
+                this.init();
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(600, now);
+                gain.gain.setValueAtTime(0.1, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.05);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.05);
+            }
+        };
+
+        /* ==========================================================================
+           3. BACKGROUND CANVAS STARS ANIMATION
+           ========================================================================== */
+        function initSpaceBackground() {
+            const canvas = document.getElementById('spaceCanvas');
+            const ctx = canvas.getContext('2d');
+            let stars = [];
+
+            function resize() {
+                canvas.width = window.innerWidth;
+                canvas.height = window.innerHeight;
+                stars = [];
+                for (let i = 0; i < 150; i++) {
+                    stars.push({
+                        x: Math.random() * canvas.width,
+                        y: Math.random() * canvas.height,
+                        radius: Math.random() * 1.8,
+                        alpha: Math.random(),
+                        speed: Math.random() * 0.02 + 0.005
+                    });
+                }
+            }
+
+            window.addEventListener('resize', resize);
+            resize();
+
+            function animate() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                stars.forEach(s => {
+                    s.alpha += s.speed;
+                    if (s.alpha > 1 || s.alpha < 0) s.speed = -s.speed;
+                    ctx.beginPath();
+                    ctx.arc(s.x, s.y, s.radius, 0, Math.PI * 2);
+                    ctx.fillStyle = `rgba(255, 255, 255, ${Math.abs(s.alpha)})`;
+                    ctx.fill();
+                });
+                requestAnimationFrame(animate);
+            }
+            animate();
+        }
+
+        /* ==========================================================================
+           4. RENDER UNIVERSE & GROUPS
+           ========================================================================== */
+        function renderUniverse() {
+            const mainContainer = document.getElementById('mainUniverse');
+            mainContainer.innerHTML = '';
+
+            if (groups.length === 0) {
+                mainContainer.innerHTML = `
+                    <div class="text-center text-slate-500 my-auto font-orbitron">
+                        <i class="fa-solid fa-user-astronaut text-5xl mb-3 block"></i>
+                        Tiada kumpulan lagi. Klik "Tambah Kumpulan" di atas.
+                    </div>`;
+                return;
+            }
+
+            groups.forEach(g => {
+                const groupCard = document.createElement('div');
+                groupCard.className = 'relative flex flex-col items-center justify-center p-6 rounded-3xl glass-panel w-72 h-72 border border-slate-700/60 shadow-2xl transition-all duration-300 hover:border-cyan-500/50';
+
+                const avatarSvg = AVATARS[g.avatar] ? AVATARS[g.avatar].icon : AVATARS['planet'].icon;
+                
+                let htmlContent = `
+                    <!-- Center Group Avatar -->
+                    <div class="relative w-28 h-28 flex items-center justify-center animate-float z-10">
+                        <div class="w-24 h-24 rounded-full bg-slate-900/80 p-2 border-2 border-cyan-400/60 shadow-[0_0_20px_rgba(56,189,248,0.3)] flex items-center justify-center">
+                            ${avatarSvg}
+                        </div>
+                    </div>
+
+                    <!-- Orbiting Celestial Task Objects -->
+                    <div class="absolute inset-0 pointer-events-none z-20">
+                `;
+
+                g.assignedTasks.forEach((tObj, index) => {
+                    const taskData = tasks.find(t => t.id === tObj.taskId);
+                    if (!taskData) return;
+
+                    const celestial = CELESTIAL_OBJECTS[index % CELESTIAL_OBJECTS.length];
+                    const isLit = (currentPhase === 1 && tObj.isBugCleared) || (currentPhase === 2 && tObj.isRepaired);
+                    const glowClass = isLit ? 'drop-shadow-[0_0_15px_rgba(250,204,21,1)] scale-125 border-amber-400 bg-amber-950/80' : 'opacity-80 border-slate-600 bg-slate-900';
+
+                    const animDuration = 12 + index * 4;
+                    const animDelay = -(index * 3);
+
+                    htmlContent += `
+                        <div class="orbit-item pointer-events-auto cursor-pointer group" 
+                             style="animation-duration: ${animDuration}s; animation-delay: ${animDelay}s;"
+                             onclick="openTaskModal('${g.id}', '${taskData.id}')"
+                             title="${taskData.title}">
+                            <div class="w-9 h-9 rounded-full border flex items-center justify-center ${celestial.color} ${glowClass} transition-all duration-300 hover:scale-130">
+                                <i class="fa-solid ${celestial.icon} text-sm"></i>
+                            </div>
+                            <span class="absolute top-10 -left-6 bg-slate-900/90 text-[10px] text-slate-200 px-2 py-0.5 rounded border border-slate-700 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity">
+                                ${taskData.category} ${isLit ? '✓' : ''}
+                            </span>
+                        </div>
+                    `;
+                });
+
+                htmlContent += `
+                    </div>
+
+                    <div class="mt-4 text-center z-10">
+                        <h3 class="font-orbitron font-extrabold text-base text-cyan-300 tracking-wide">${g.name}</h3>
+                        <p class="text-xs text-slate-400 font-rajdhani truncate max-w-[220px]">${g.members || 'Tiada ahli'}</p>
+                        <span class="inline-block mt-1 text-[11px] font-semibold text-purple-300 bg-purple-950/60 px-2.5 py-0.5 rounded-full border border-purple-800/40">
+                            ${g.assignedTasks.length} Tugasan Diorbit
+                        </span>
+                    </div>
+                `;
+
+                groupCard.innerHTML = htmlContent;
+                mainContainer.appendChild(groupCard);
+            });
+        }
+
+        /* ==========================================================================
+           5. RODA IMPIAN (SPIN WHEEL) SYSTEM
+           ========================================================================== */
+        let activeWheelTasks = [...tasks];
+        let startAngle = 0;
+        let spinTimeout = null;
+        let spinArc = 0;
+        let spinTime = 0;
+        let spinTimeTotal = 0;
+
+        function toggleWheelDrawer() {
+            const drawer = document.getElementById('wheelDrawer');
+            const isHidden = drawer.classList.contains('opacity-0');
+
+            if (isHidden) {
+                drawer.classList.remove('opacity-0', 'pointer-events-none');
+                updateWheelGroupSelect();
+                renderWheelTaskList();
+                drawSpinWheel();
+            } else {
+                drawer.classList.add('opacity-0', 'pointer-events-none');
+            }
+        }
+
+        function updateWheelGroupSelect() {
+            const select = document.getElementById('selectGroupForWheel');
+            select.innerHTML = '';
+            groups.forEach(g => {
+                const opt = document.createElement('option');
+                opt.value = g.id;
+                opt.textContent = `${g.name} (${g.assignedTasks.length} Tugasan)`;
+                select.appendChild(opt);
+            });
+        }
+
+        function renderWheelTaskList() {
+            const list = document.getElementById('wheelTaskList');
+            const badge = document.getElementById('taskCountBadge');
+            badge.textContent = `${activeWheelTasks.length} Tugasan`;
+            list.innerHTML = '';
+
+            activeWheelTasks.forEach((t, idx) => {
+                const li = document.createElement('li');
+                li.className = 'flex items-center justify-between p-2 rounded bg-slate-800/60 border border-slate-700/50 text-slate-200';
+                li.innerHTML = `
+                    <span class="truncate pr-2 font-medium">${t.title}</span>
+                    <button onclick="removeTaskFromWheel(${idx})" title="Buang Tugasan Ini" class="text-xs text-rose-400 hover:text-rose-300 hover:bg-rose-950/80 px-2 py-1 rounded transition-colors">
+                        <i class="fa-solid fa-trash-can"></i> Buang
+                    </button>
+                `;
+                list.appendChild(li);
+            });
+        }
+
+        function removeTaskFromWheel(index) {
+            if (activeWheelTasks.length <= 1) {
+                showToast("Mesti ada sekurang-kurangnya 1 tugasan di dalam roda!", "error");
+                return;
+            }
+            activeWheelTasks.splice(index, 1);
+            renderWheelTaskList();
+            drawSpinWheel();
+            showToast("Tugasan dikeluarkan dari roda.", "info");
+        }
+
+        function drawSpinWheel() {
+            const canvas = document.getElementById('wheelCanvas');
+            if (!canvas.getContext) return;
+            const ctx = canvas.getContext('2d');
+            const outsideRadius = 140;
+            const textRadius = 100;
+            const insideRadius = 35;
+
+            ctx.clearRect(0, 0, 320, 320);
+
+            const numOptions = activeWheelTasks.length;
+            spinArc = Math.PI * 2 / numOptions;
+
+            const colors = ['#3b82f6', '#8b5cf6', '#ec4899', '#10b981', '#f59e0b', '#06b6d4'];
+
+            for (let i = 0; i < numOptions; i++) {
+                const angle = startAngle + i * spinArc;
+                ctx.fillStyle = colors[i % colors.length];
+
+                ctx.beginPath();
+                ctx.arc(160, 160, outsideRadius, angle, angle + spinArc, false);
+                ctx.arc(160, 160, insideRadius, angle + spinArc, angle, true);
+                ctx.fill();
+                ctx.lineWidth = 2;
+                ctx.strokeStyle = '#0f172a';
+                ctx.stroke();
+
+                ctx.save();
+                ctx.fillStyle = "#ffffff";
+                ctx.font = 'bold 11px Orbitron, sans-serif';
+                ctx.translate(160 + Math.cos(angle + spinArc / 2) * textRadius,
+                              160 + Math.sin(angle + spinArc / 2) * textRadius);
+                ctx.rotate(angle + spinArc / 2 + Math.PI / 2);
+                const text = activeWheelTasks[i].category;
+                ctx.fillText(text, -ctx.measureText(text).width / 2, 0);
+                ctx.restore();
+            }
+        }
+
+        function spinWheel() {
+            if (groups.length === 0) {
+                showToast("Sila cipta sekurang-kurangnya satu kumpulan terlebih dahulu!", "error");
+                return;
+            }
+            if (activeWheelTasks.length === 0) return;
+
+            const btn = document.getElementById('btnSpinWheel');
+            btn.disabled = true;
+
+            const spinAngleStart = Math.random() * 10 + 10;
+            spinTime = 0;
+            spinTimeTotal = Math.random() * 3000 + 4000;
+            
+            function rotateWheel() {
+                spinTime += 30;
+                if (spinTime >= spinTimeTotal) {
+                    stopRotateWheel();
+                    btn.disabled = false;
+                    return;
+                }
+                const spinAngle = spinAngleStart - easeOut(spinTime, 0, spinAngleStart, spinTimeTotal);
+                startAngle += (spinAngle * Math.PI / 180);
+                drawSpinWheel();
+                AudioFX.playSpin();
+                spinTimeout = setTimeout(rotateWheel, 30);
+            }
+            rotateWheel();
+        }
+
+        function easeOut(t, b, c, d) {
+            const ts = (t /= d) * t;
+            const tc = ts * t;
+            return b + c * (tc + -3 * ts + 3 * t);
+        }
+
+        function stopRotateWheel() {
+            clearTimeout(spinTimeout);
+            const degrees = startAngle * 180 / Math.PI + 90;
+            const arclen = spinArc * 180 / Math.PI;
+            const index = Math.floor((360 - degrees % 360) / arclen);
+            
+            const selectedTask = activeWheelTasks[index];
+            const targetGroupId = document.getElementById('selectGroupForWheel').value;
+            const targetGroup = groups.find(g => g.id === targetGroupId);
+
+            if (targetGroup && selectedTask) {
+                const exists = targetGroup.assignedTasks.some(at => at.taskId === selectedTask.id);
+                if (!exists) {
+                    targetGroup.assignedTasks.push({
+                        taskId: selectedTask.id,
+                        isBugCleared: false,
+                        isRepaired: false
+                    });
+                }
+
+                renderUniverse();
+                toggleWheelDrawer();
+                showToast(`Tugasan "${selectedTask.category}" telah diberikan kepada ${targetGroup.name}!`, "success");
+                AudioFX.playSuccess();
+            }
+        }
+
+        /* ==========================================================================
+           6. TASK MODAL INTERACTIVE (BUG HUNTING & PENAMBAHBAIKAN)
+           ========================================================================== */
+        function openTaskModal(groupId, taskId) {
+            activeGroupId = groupId;
+            activeTaskId = taskId;
+            selectedBugLineIds = [];
+
+            const task = tasks.find(t => t.id === taskId);
+            const group = groups.find(g => g.id === groupId);
+            if (!task || !group) return;
+
+            document.getElementById('taskModalTitle').textContent = `${task.title} (${group.name})`;
+            document.getElementById('taskModalBadge').textContent = task.category;
+
+            // Reset custom task states
+            task2Selectors = { condition: 'tanah basah', elseAction: 'Hidupkan pam air' };
+            task4Symbol = 'rect';
+            task5State = { symbol: 'rect', label2: 'Ya' };
+            task6State = { symbol: 'rect', branchLogic: 'reversed' };
+
+            renderSimulationCanvas(task, false);
+
+            if (currentPhase === 1) {
+                document.getElementById('phase1CodeContainer').classList.remove('hidden');
+                document.getElementById('phase2CodeContainer').classList.add('hidden');
+                document.getElementById('phase1Buttons').classList.remove('hidden');
+                document.getElementById('phase2Buttons').classList.add('hidden');
+                renderPhase1CodeLines(task);
+            } else {
+                document.getElementById('phase1CodeContainer').classList.add('hidden');
+                document.getElementById('phase2CodeContainer').classList.remove('hidden');
+                document.getElementById('phase1Buttons').classList.add('hidden');
+                document.getElementById('phase2Buttons').classList.remove('hidden');
+                renderPhase2Blocks(task);
+            }
+
+            const modal = document.getElementById('taskModal');
+            modal.classList.remove('opacity-0', 'pointer-events-none');
+        }
+
+        function closeTaskModal() {
+            const modal = document.getElementById('taskModal');
+            modal.classList.add('opacity-0', 'pointer-events-none');
+        }
+
+        /* --- Dynamic Canvas Animations for Task Animations --- */
+        function renderSimulationCanvas(task, isErrorState = false) {
+            const container = document.getElementById('simulationContainer');
+            container.innerHTML = '';
+
+            const canvasSvg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+            canvasSvg.setAttribute("viewBox", "0 0 300 200");
+            canvasSvg.setAttribute("class", "w-full h-full");
+
+            if (task.id === 't1') {
+                // Task 1 Rocket Animation
+                canvasSvg.innerHTML = `
+                    <defs>
+                        <linearGradient id="skyGrad" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stop-color="#090d16"/>
+                            <stop offset="100%" stop-color="#1e1b4b"/>
+                        </linearGradient>
+                    </defs>
+                    <rect width="300" height="200" fill="url(#skyGrad)"/>
+                    <rect x="0" y="170" width="300" height="30" fill="#334155"/>
+                    <g transform="${isErrorState ? 'translate(130, 85) rotate(2)' : 'translate(130, 70)'}">
+                        <path d="M 20 0 Q 40 30 35 60 L 5 60 Q 0 30 20 0 Z" fill="#ef4444"/>
+                        <circle cx="20" cy="30" r="6" fill="#38bdf8"/>
+                        <path d="M 5 60 L -5 75 L 5 70 Z" fill="#dc2626"/>
+                        <path d="M 35 60 L 45 75 L 35 70 Z" fill="#dc2626"/>
+                        ${isErrorState ? '<path d="M 10 60 Q 20 70 30 60 Q 20 80 10 60" fill="#94a3b8" opacity="0.8"/>' : '<polygon points="12,60 28,60 20,85" fill="#f59e0b"/>'}
+                    </g>
+                    ${isErrorState ? '<text x="150" y="40" fill="#f87171" font-size="12" font-family="Orbitron" font-weight="bold" text-anchor="middle">Roket tidak dapat terbang!</text>' : ''}
+                `;
+            } else if (task.id === 't2') {
+                // Task 2 Martian Garden Animation
+                canvasSvg.innerHTML = `
+                    <rect width="300" height="200" fill="#180e29"/>
+                    <rect x="0" y="140" width="300" height="60" fill="${isErrorState ? '#78350f' : '#b45309'}"/>
+                    ${isErrorState ? '<rect x="0" y="140" width="300" height="60" fill="#0284c7" opacity="0.3"/>' : ''}
+                    <path d="M 80 140 Q 90 100 100 140 Q 110 90 120 140" stroke="#10b981" stroke-width="4" fill="none"/>
+                    <path d="M 180 140 Q 190 100 200 140 Q 210 90 220 140" stroke="#10b981" stroke-width="4" fill="none"/>
+                    ${isErrorState ? '<text x="150" y="50" fill="#38bdf8" font-size="12" font-family="Orbitron" text-anchor="middle" font-weight="bold">Tanah Banjir Mud & Overwatered!</text>' : ''}
+                `;
+            } else if (task.id === 't3') {
+                // Task 3 Water Bottle Animation
+                canvasSvg.innerHTML = `
+                    <rect width="300" height="200" fill="#0f172a"/>
+                    <rect x="120" y="40" width="60" height="120" rx="10" fill="none" stroke="#38bdf8" stroke-width="3"/>
+                    <rect x="123" y="${isErrorState ? 157 : 60}" width="54" height="${isErrorState ? 0 : 97}" rx="5" fill="#0284c7" opacity="0.8"/>
+                    <text x="150" y="180" fill="#cbd5e1" font-size="11" font-family="monospace" text-anchor="middle">${isErrorState ? 'Isipadu = 0ml (Tukang Tuang Ralat)' : 'Isipadu = 100ml (Penuh)'}</text>
+                `;
+            } else if (task.id === 't4') {
+                // Task 4 Rover Animation
+                canvasSvg.innerHTML = `
+                    <rect width="300" height="200" fill="#1e1b4b"/>
+                    <path d="M 0 160 Q 150 140 300 160 L 300 200 L 0 200 Z" fill="#64748b"/>
+                    <rect x="100" y="110" width="60" height="30" rx="5" fill="#94a3b8"/>
+                    <circle cx="115" cy="145" r="10" fill="#334155"/>
+                    <circle cx="145" cy="145" r="10" fill="#334155"/>
+                    ${isErrorState ? '<text x="150" y="50" fill="#f87171" font-size="12" font-family="Orbitron" font-weight="bold" text-anchor="middle">Rover Tersekat! (Tiada Imbasan)</text>' : ''}
+                `;
+            } else if (task.id === 't5') {
+                // Task 5 Space Door Animation
+                canvasSvg.innerHTML = `
+                    <rect width="300" height="200" fill="#090d16"/>
+                    <rect x="90" y="30" width="120" height="140" fill="#334155" stroke="#475569" stroke-width="4"/>
+                    <rect x="${isErrorState ? 120 : 95}" y="35" width="55" height="130" fill="#0284c7" opacity="0.7"/>
+                    <rect x="${isErrorState ? 125 : 150}" y="35" width="55" height="130" fill="#0284c7" opacity="0.7"/>
+                    ${isErrorState ? '<text x="150" y="20" fill="#f87171" font-size="11" font-family="Orbitron" font-weight="bold" text-anchor="middle">Keputusan Tidak Jelas!</text>' : ''}
+                `;
+            } else if (task.id === 't6') {
+                // Task 6 Drink Water Animation
+                canvasSvg.innerHTML = `
+                    <rect width="300" height="200" fill="#0b1329"/>
+                    <circle cx="150" cy="80" r="30" fill="#fcd34d"/>
+                    <circle cx="140" cy="75" r="4" fill="#000"/>
+                    <circle cx="160" cy="75" r="4" fill="#000"/>
+                    <path d="M 140 90 Q 150 100 160 90" stroke="#000" stroke-width="2" fill="none"/>
+                    <text x="150" y="150" fill="#cbd5e1" font-size="11" font-family="monospace" text-anchor="middle">${isErrorState ? 'Gelung Terbalik / Dahaga Berterusan!' : 'Puas & Tidak Dahaga'}</text>
+                `;
+            }
+
+            container.appendChild(canvasSvg);
+        }
+
+        /* --- Phase 1 Bug Hunter Click & Submission Logic --- */
+        function toggleBugLineSelect(lineId, task) {
+            const index = selectedBugLineIds.indexOf(lineId);
+            if (index > -1) {
+                selectedBugLineIds.splice(index, 1);
+            } else {
+                if (selectedBugLineIds.length >= task.bugCount) {
+                    showToast(`Tugasan ini hanya mengandungi ${task.bugCount} ralat!`, "info");
+                    return;
+                }
+                selectedBugLineIds.push(lineId);
+            }
+            renderPhase1CodeLines(task);
+        }
+
+        function submitPhase1Bugs() {
+            const task = tasks.find(t => t.id === activeTaskId);
+            const group = groups.find(g => g.id === activeGroupId);
+            if (!task || !group) return;
+
+            const actualBugIds = task.codeLines.filter(l => l.isBug).map(l => l.id);
+            const isCorrect = selectedBugLineIds.length === actualBugIds.length && 
+                              selectedBugLineIds.every(id => actualBugIds.includes(id));
+
+            if (isCorrect) {
+                AudioFX.playSuccess();
+                confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
+
+                const assigned = group.assignedTasks.find(at => at.taskId === task.id);
+                if (assigned) assigned.isBugCleared = true;
+
+                document.getElementById('simStatus').textContent = "Status: Semua Ralat Ditemui!";
+                document.getElementById('simStatus').className = "text-emerald-400 font-bold";
+                document.getElementById('simulationFeedback').textContent = "Syabas! Anda berjaya mengesan semua ralat kod dengan tepat.";
+                document.getElementById('simulationFeedback').className = "w-full text-center text-xs py-2 px-3 rounded-lg mt-2 font-mono bg-emerald-950/80 text-emerald-200 border border-emerald-800";
+
+                renderSimulationCanvas(task, false);
+                renderUniverse();
+                showToast("Tahniah! Semua Ralat (Bugs) Berjaya Dikesan!", "success");
+            } else {
+                AudioFX.playError();
+                document.getElementById('simStatus').textContent = "Status: Pilihan Ralat Kurang Tepat";
+                document.getElementById('simStatus').className = "text-rose-400 font-bold";
+                document.getElementById('simulationFeedback').textContent = "Pilihan ralat tidak tepat. Sila semak semula baris kod atau simbol carta alir!";
+                document.getElementById('simulationFeedback').className = "w-full text-center text-xs py-2 px-3 rounded-lg mt-2 font-mono bg-rose-950/80 text-rose-200 border border-rose-800";
+
+                renderSimulationCanvas(task, true);
+                showToast("Jawapan kurang tepat. Sila cuba lagi!", "error");
+            }
+        }
+
+        /* --- Phase 2: Penambahbaikan Mechanics (Interactive Flowchart Graphics Mod) --- */
+        function renderPhase2Blocks(task) {
+            const container = document.getElementById('dragBlocksList');
+            container.innerHTML = '';
+
+            if (task.id === 't2') {
+                // Interactive Condition Dropdown selectors for Task 2
+                container.innerHTML = `
+                    <div class="p-3 bg-slate-900 border border-purple-500/30 rounded-xl space-y-3 text-xs font-mono">
+                        <div class="text-slate-300 font-bold">1 MULA</div>
+                        <div class="text-slate-300">2 Baca kelembapan tanah</div>
+                        <div class="flex items-center gap-2">
+                            <span class="text-purple-300 font-bold">3 JIKA</span>
+                            <select onchange="task2Selectors.condition = this.value" class="bg-slate-950 border border-purple-500/50 rounded px-2 py-1 text-amber-300 focus:outline-none">
+                                <option value="tanah basah" ${task2Selectors.condition === 'tanah basah' ? 'selected' : ''}>tanah basah</option>
+                                <option value="tanah kering" ${task2Selectors.condition === 'tanah kering' ? 'selected' : ''}>tanah kering</option>
+                            </select>
+                            <span class="text-purple-300 font-bold">MAKA</span>
+                        </div>
+                        <div class="pl-4 text-emerald-400">4     Hidupkan pam air</div>
+                        <div class="text-purple-300 font-bold">5 JIKA TIDAK</div>
+                        <div class="flex items-center gap-2 pl-4">
+                            <span class="text-slate-400">6    </span>
+                            <select onchange="task2Selectors.elseAction = this.value" class="bg-slate-950 border border-purple-500/50 rounded px-2 py-1 text-cyan-300 focus:outline-none">
+                                <option value="Hidupkan pam air" ${task2Selectors.elseAction === 'Hidupkan pam air' ? 'selected' : ''}>Hidupkan pam air</option>
+                                <option value="Matikan pam air" ${task2Selectors.elseAction === 'Matikan pam air' ? 'selected' : ''}>Matikan pam air</option>
+                            </select>
+                        </div>
+                        <div class="text-slate-300 font-bold">7 TAMAT-JIKA</div>
+                        <div class="text-slate-300 font-bold">8 TAMAT</div>
+                    </div>
+                `;
+                return;
+            }
+
+            if (task.id === 't4') {
+                // Flowchart Task 4: Interactive Graphic Symbol Selection & Drag Reorder
+                container.innerHTML = `
+                    <div class="mb-3 p-3 bg-slate-900 border border-purple-500/30 rounded-xl flex flex-col gap-2 text-xs">
+                        <span class="text-slate-300 font-bold font-mono">Tukar Simbol [Mula] Kepada Simbol Piawai:</span>
+                        <div class="flex gap-2 justify-center">
+                            <button onclick="task4Symbol = 'rect'; renderPhase2Blocks(tasks.find(t=>t.id==='t4'))" class="px-3 py-1.5 rounded-lg border flex items-center gap-2 ${task4Symbol === 'rect' ? 'bg-rose-950 border-rose-500 text-rose-200' : 'bg-slate-950 border-slate-800 text-slate-400'}">
+                                <svg class="w-12 h-6" viewBox="0 0 60 25"><rect x="2" y="2" width="56" height="21" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+                                <span>Segi Empat (Ralat)</span>
+                            </button>
+                            <button onclick="task4Symbol = 'oval'; renderPhase2Blocks(tasks.find(t=>t.id==='t4'))" class="px-3 py-1.5 rounded-lg border flex items-center gap-2 ${task4Symbol === 'oval' ? 'bg-emerald-950 border-emerald-500 text-emerald-200' : 'bg-slate-950 border-slate-800 text-slate-400'}">
+                                <svg class="w-12 h-6" viewBox="0 0 60 25"><rect x="2" y="2" width="56" height="21" rx="10" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+                                <span>Oval Terminal (Betul)</span>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }
+
+            if (task.id === 't5') {
+                // Flowchart Task 5: Interactive Graphic Branch Decision Symbol & Label Toggle
+                container.innerHTML = `
+                    <div class="p-3 bg-slate-900 border border-purple-500/30 rounded-xl space-y-3 text-xs font-mono">
+                        <div class="flex items-center justify-between">
+                            <span class="text-slate-200 font-semibold">Simbol Decision [Angkasawan dikesan?]:</span>
+                            <button onclick="task5State.symbol = task5State.symbol === 'rect' ? 'rhombus' : 'rect'; renderPhase2Blocks(tasks.find(t=>t.id==='t5'))" class="px-3 py-1.5 rounded-lg border flex items-center gap-2 ${task5State.symbol === 'rhombus' ? 'bg-emerald-950 border-emerald-500 text-emerald-200' : 'bg-rose-950 border-rose-500 text-rose-200'}">
+                                ${task5State.symbol === 'rect' ? 'Persegi (Ralat)' : 'Rhombus / Berlian Piawai (Betul)'}
+                            </button>
+                        </div>
+
+                        <!-- Graphical Preview of Decision Flowchart -->
+                        <div class="flex flex-col items-center justify-center p-3 bg-slate-950 rounded-xl border border-slate-800">
+                            <svg class="w-full h-32" viewBox="0 0 260 120">
+                                ${task5State.symbol === 'rhombus' 
+                                    ? '<polygon points="130,5 190,30 130,55 70,30" fill="#0f172a" stroke="#10b981" stroke-width="2"/>' 
+                                    : '<rect x="70" y="5" width="120" height="45" fill="#0f172a" stroke="#f43f5e" stroke-width="2"/>'}
+                                <text x="130" y="32" text-anchor="middle" fill="#fff" font-size="9" font-family="monospace">Angkasawan dikesan?</text>
+                                
+                                <!-- Branch 1 (Ya) -->
+                                <line x1="190" y1="30" x2="230" y2="30" stroke="#38bdf8" stroke-width="2" marker-end="url(#arrow)"/>
+                                <text x="205" y="23" fill="#38bdf8" font-size="10" font-weight="bold">Ya</text>
+                                <rect x="180" y="45" width="70" height="25" rx="3" fill="#0f172a" stroke="#38bdf8" stroke-width="1.5"/>
+                                <text x="215" y="61" text-anchor="middle" fill="#fff" font-size="8">Buka Pintu</text>
+
+                                <!-- Branch 2 (Tidak / Toggle Label) -->
+                                <line x1="130" y1="55" x2="130" y2="85" stroke="#38bdf8" stroke-width="2"/>
+                                <text x="140" y="73" fill="${task5State.label2 === 'Tidak' ? '#10b981' : '#f43f5e'}" font-size="10" font-weight="bold">${task5State.label2}</text>
+                                <rect x="80" y="85" width="100" height="25" rx="3" fill="#0f172a" stroke="#38bdf8" stroke-width="1.5"/>
+                                <text x="130" y="101" text-anchor="middle" fill="#fff" font-size="8">Pintu Kekal Tertutup</text>
+                            </svg>
+                        </div>
+
+                        <div class="flex items-center justify-between border-t border-slate-800 pt-2">
+                            <span>Tukar Label Cabangan Bawah:</span>
+                            <button onclick="task5State.label2 = task5State.label2 === 'Ya' ? 'Tidak' : 'Ya'; renderPhase2Blocks(tasks.find(t=>t.id==='t5'))" class="px-3 py-1.5 rounded-lg border ${task5State.label2 === 'Tidak' ? 'bg-emerald-950 border-emerald-500 text-emerald-200' : 'bg-rose-950 border-rose-500 text-rose-200'}">
+                                Label Cabang: "${task5State.label2}"
+                            </button>
+                        </div>
+                    </div>
+                `;
+                return;
+            }
+
+            if (task.id === 't6') {
+                // Flowchart Task 6: Interactive Looping Graphic Flowchart (Ulangan)
+                container.innerHTML = `
+                    <div class="p-3 bg-slate-900 border border-purple-500/30 rounded-xl space-y-3 text-xs font-mono">
+                        <div class="flex items-center justify-between">
+                            <span class="text-slate-200 font-semibold">Simbol Decision [Masih Dahaga?]:</span>
+                            <button onclick="task6State.symbol = task6State.symbol === 'rect' ? 'rhombus' : 'rect'; renderPhase2Blocks(tasks.find(t=>t.id==='t6'))" class="px-3 py-1.5 rounded-lg border flex items-center gap-2 ${task6State.symbol === 'rhombus' ? 'bg-emerald-950 border-emerald-500 text-emerald-200' : 'bg-rose-950 border-rose-500 text-rose-200'}">
+                                ${task6State.symbol === 'rect' ? 'Persegi (Ralat)' : 'Rhombus / Berlian Piawai (Betul)'}
+                            </button>
+                        </div>
+
+                        <!-- Graphical Flowchart Loop View -->
+                        <div class="flex flex-col items-center justify-center p-3 bg-slate-950 rounded-xl border border-slate-800">
+                            <svg class="w-full h-40" viewBox="0 0 260 150">
+                                <!-- Top Process -->
+                                <rect x="80" y="5" width="100" height="25" rx="3" fill="#0f172a" stroke="#38bdf8" stroke-width="1.5"/>
+                                <text x="130" y="21" text-anchor="middle" fill="#fff" font-size="9">Minum 1 Teguk</text>
+                                <line x1="130" y1="30" x2="130" y2="45" stroke="#38bdf8" stroke-width="2"/>
+
+                                <!-- Decision Diamond/Rect -->
+                                ${task6State.symbol === 'rhombus' 
+                                    ? '<polygon points="130,45 185,65 130,85 75,65" fill="#0f172a" stroke="#10b981" stroke-width="2"/>' 
+                                    : '<rect x="75" y="45" width="110" height="40" fill="#0f172a" stroke="#f43f5e" stroke-width="2"/>'}
+                                <text x="130" y="68" text-anchor="middle" fill="#fff" font-size="8" font-family="monospace">Masih Dahaga?</text>
+
+                                <!-- Branch Loop Back (Ya / Correct vs Reversed) -->
+                                <path d="M 185 65 L 220 65 L 220 17 L 180 17" fill="none" stroke="${task6State.branchLogic === 'correct' ? '#10b981' : '#f43f5e'}" stroke-width="2"/>
+                                <text x="195" y="58" fill="${task6State.branchLogic === 'correct' ? '#10b981' : '#f43f5e'}" font-size="9" font-weight="bold">
+                                    ${task6State.branchLogic === 'correct' ? 'Ya (Ulang)' : 'Tidak (Ralat)'}
+                                </text>
+
+                                <!-- Branch Down To Tamat -->
+                                <line x1="130" y1="85" x2="130" y2="115" stroke="#38bdf8" stroke-width="2"/>
+                                <text x="140" y="103" fill="#38bdf8" font-size="9" font-weight="bold">
+                                    ${task6State.branchLogic === 'correct' ? 'Tidak' : 'Ya'}
+                                </text>
+                                <rect x="80" y="115" width="100" height="25" rx="12" fill="#0f172a" stroke="#38bdf8" stroke-width="2"/>
+                                <text x="130" y="131" text-anchor="middle" fill="#fff" font-size="9">TAMAT</text>
+                            </svg>
+                        </div>
+
+                        <div class="flex items-center justify-between border-t border-slate-800 pt-2">
+                            <span>Tukar Haluan Gelung Ulangan:</span>
+                            <button onclick="task6State.branchLogic = task6State.branchLogic === 'reversed' ? 'correct' : 'reversed'; renderPhase2Blocks(tasks.find(t=>t.id==='t6'))" class="px-3 py-1.5 rounded-lg border ${task6State.branchLogic === 'correct' ? 'bg-emerald-950 border-emerald-500 text-emerald-200' : 'bg-rose-950 border-rose-500 text-rose-200'}">
+                                ${task6State.branchLogic === 'reversed' ? 'Logik Terbalik (Ralat)' : 'Ya -> Loop Semula (Betul)'}
+                            </button>
+                        </div>
+                    </div>
+                `;
+                return;
+            }
+
+            // Default Drag and Drop List for Pseudocode
+            if (!activeTaskBlocks || activeTaskBlocks.length === 0 || activeTaskId !== task.id) {
+                activeTaskBlocks = [...task.correctBlocksOrder].sort(() => Math.random() - 0.5);
+            }
+
+            const listDiv = document.createElement('div');
+            listDiv.className = 'space-y-2';
+
+            activeTaskBlocks.forEach((blockText, idx) => {
+                const div = document.createElement('div');
+                div.className = 'draggable-item p-3 bg-slate-900 border border-purple-500/30 rounded-xl text-slate-200 font-mono text-xs md:text-sm flex items-center justify-between shadow-md';
+                div.draggable = true;
+                div.dataset.index = idx;
+
+                div.innerHTML = `
+                    <div class="flex items-center gap-3">
+                        <i class="fa-solid fa-grip-vertical text-purple-400 cursor-grab"></i>
+                        <span>${blockText}</span>
+                    </div>
+                    <span class="text-[10px] text-slate-500 font-sans">Blok ${idx + 1}</span>
+                `;
+
+                div.addEventListener('dragstart', handleDragStart);
+                div.addEventListener('dragover', handleDragOver);
+                div.addEventListener('drop', handleDrop);
+                div.addEventListener('dragend', handleDragEnd);
+
+                listDiv.appendChild(div);
+            });
+
+            container.appendChild(listDiv);
+        }
+
+        function handleDragStart(e) {
+            draggedBlockIndex = +this.dataset.index;
+            e.dataTransfer.effectAllowed = 'move';
+        }
+
+        function handleDragOver(e) {
+            e.preventDefault();
+            this.classList.add('drag-over');
+        }
+
+        function handleDragEnd() {
+            document.querySelectorAll('.draggable-item').forEach(i => i.classList.remove('drag-over'));
+        }
+
+        function handleDrop(e) {
+            e.preventDefault();
+            const targetIndex = +this.dataset.index;
+            if (draggedBlockIndex === null || draggedBlockIndex === targetIndex) return;
+
+            const itemToMove = activeTaskBlocks[draggedBlockIndex];
+            activeTaskBlocks.splice(draggedBlockIndex, 1);
+            activeTaskBlocks.splice(targetIndex, 0, itemToMove);
+
+            const task = tasks.find(t => t.id === activeTaskId);
+            renderPhase2Blocks(task);
+        }
+
+        function resetPhase2Blocks() {
+            const task = tasks.find(t => t.id === activeTaskId);
+            if (!task) return;
+            activeTaskBlocks = [...task.correctBlocksOrder].sort(() => Math.random() - 0.5);
+            task2Selectors = { condition: 'tanah basah', elseAction: 'Hidupkan pam air' };
+            task4Symbol = 'rect';
+            task5State = { symbol: 'rect', label2: 'Ya' };
+            task6State = { symbol: 'rect', branchLogic: 'reversed' };
+            renderPhase2Blocks(task);
+            showToast("Susunan dan tetapan telah diset semula.", "info");
+        }
+
+        function showHintModal() {
+            const task = tasks.find(t => t.id === activeTaskId);
+            if (!task) return;
+            document.getElementById('hintText').textContent = task.hint;
+            const modal = document.getElementById('hintModal');
+            modal.classList.remove('opacity-0', 'pointer-events-none');
+        }
+
+        function closeHintModal() {
+            const modal = document.getElementById('hintModal');
+            modal.classList.add('opacity-0', 'pointer-events-none');
+        }
+
+        function testPhase2Blocks() {
+            const task = tasks.find(t => t.id === activeTaskId);
+            const group = groups.find(g => g.id === activeGroupId);
+            if (!task || !group) return;
+
+            let isSequenceCorrect = false;
+
+            if (task.id === 't1') {
+                const enjinIdx = activeTaskBlocks.indexOf('Hidupkan enjin');
+                const detikIdx = activeTaskBlocks.indexOf('Kira detik 3, 2, 1');
+                const butangIdx = activeTaskBlocks.indexOf('Tekan butang lancar');
+                const terbangIdx = activeTaskBlocks.indexOf('Roket terbang');
+
+                isSequenceCorrect = (enjinIdx < detikIdx) && (butangIdx > detikIdx) && (terbangIdx === activeTaskBlocks.length - 2 || terbangIdx === activeTaskBlocks.length - 1);
+            } else if (task.id === 't2') {
+                isSequenceCorrect = (task2Selectors.condition === 'tanah kering') && (task2Selectors.elseAction === 'Matikan pam air');
+            } else if (task.id === 't4') {
+                const imbasIdx = activeTaskBlocks.indexOf('Imbas permukaan planet');
+                const sampelIdx = activeTaskBlocks.indexOf('Ambil sampel batu');
+                isSequenceCorrect = (task4Symbol === 'oval') && (imbasIdx < sampelIdx);
+            } else if (task.id === 't5') {
+                isSequenceCorrect = (task5State.symbol === 'rhombus') && (task5State.label2 === 'Tidak');
+            } else if (task.id === 't6') {
+                isSequenceCorrect = (task6State.symbol === 'rhombus') && (task6State.branchLogic === 'correct');
+            } else {
+                isSequenceCorrect = JSON.stringify(activeTaskBlocks) === JSON.stringify(task.correctBlocksOrder);
+            }
+
+            if (isSequenceCorrect) {
+                AudioFX.playSuccess();
+                confetti({ particleCount: 120, spread: 80, origin: { y: 0.5 } });
+
+                const assigned = group.assignedTasks.find(at => at.taskId === task.id);
+                if (assigned) assigned.isRepaired = true;
+
+                document.getElementById('simStatus').textContent = "Status: Ujian Berjaya! (100%)";
+                document.getElementById('simStatus').className = "text-emerald-400 font-bold";
+                document.getElementById('simulationFeedback').textContent = "Tahniah! Algoritma berfungsi sempurna! Anda boleh mula membuat pembentangan (bentang).";
+                document.getElementById('simulationFeedback').className = "w-full text-center text-xs py-2 px-3 rounded-lg mt-2 font-mono bg-emerald-950/80 text-emerald-200 border border-emerald-800";
+
+                renderSimulationCanvas(task, false);
+                renderUniverse();
+                showToast("Ujian Simulasi Berjaya! Sedia untuk Pembentangan.", "success");
+            } else {
+                AudioFX.playError();
+                document.getElementById('simStatus').textContent = "Status: Simulasi Terhenti (Ralat Logik)";
+                document.getElementById('simStatus').className = "text-rose-400 font-bold";
+                document.getElementById('simulationFeedback').textContent = "Ujian gagal pada pertengahan langkah. Sila semak urutan atau simbol algoritma anda!";
+                document.getElementById('simulationFeedback').className = "w-full text-center text-xs py-2 px-3 rounded-lg mt-2 font-mono bg-rose-950/80 text-rose-200 border border-rose-800";
+                renderSimulationCanvas(task, true);
+                showToast("Simulasi ralat. Tetapan belum mengikut urutan yang betul.", "error");
+            }
+        }
+
+        /* ==========================================================================
+           7. PHASE SWITCHING & CREATION MODALS
+           ========================================================================== */
+        function switchPhase(phaseNum) {
+            currentPhase = phaseNum;
+            const btn1 = document.getElementById('btnPhase1');
+            const btn2 = document.getElementById('btnPhase2');
+            const appTitle = document.getElementById('appTitle');
+
+            if (phaseNum === 1) {
+                btn1.className = "px-4 py-2 rounded-lg text-xs md:text-sm font-semibold transition-all duration-300 flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg";
+                btn2.className = "px-4 py-2 rounded-lg text-xs md:text-sm font-semibold transition-all duration-300 flex items-center gap-2 text-slate-400 hover:text-white";
+                appTitle.textContent = "Tugasan & Bug Hunting";
+            } else {
+                btn2.className = "px-4 py-2 rounded-lg text-xs md:text-sm font-semibold transition-all duration-300 flex items-center gap-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg";
+                btn1.className = "px-4 py-2 rounded-lg text-xs md:text-sm font-semibold transition-all duration-300 flex items-center gap-2 text-slate-400 hover:text-white";
+                appTitle.textContent = "Penambahbaikan & Pembentangan";
+            }
+
+            renderUniverse();
+            showToast(`Bertukar ke Fasa ${phaseNum}: ${appTitle.textContent}`, "info");
+        }
+
+        let selectedAvatarKey = 'planet';
+
+        function openAddGroupModal() {
+            const selector = document.getElementById('avatarSelector');
+            selector.innerHTML = '';
+
+            Object.keys(AVATARS).forEach(key => {
+                const av = AVATARS[key];
+                const div = document.createElement('div');
+                div.className = `p-2 rounded-xl border cursor-pointer flex flex-col items-center justify-center gap-1 transition-all ${
+                    selectedAvatarKey === key ? 'bg-emerald-950/80 border-emerald-400 text-emerald-300' : 'bg-slate-900 border-slate-800 text-slate-400'
+                }`;
+                div.onclick = () => {
+                    selectedAvatarKey = key;
+                    openAddGroupModal();
+                };
+
+                div.innerHTML = `
+                    <div class="w-10 h-10">${av.icon}</div>
+                    <span class="text-[10px] truncate max-w-full font-semibold">${av.name}</span>
+                `;
+                selector.appendChild(div);
+            });
+
+            const modal = document.getElementById('addGroupModal');
+            modal.classList.remove('opacity-0', 'pointer-events-none');
+        }
+
+        function closeAddGroupModal() {
+            const modal = document.getElementById('addGroupModal');
+            modal.classList.add('opacity-0', 'pointer-events-none');
+        }
+
+        function handleAddGroupSubmit(e) {
+            e.preventDefault();
+            const nameInput = document.getElementById('inputGroupName').value.trim();
+            const membersInput = document.getElementById('inputGroupMembers').value.trim();
+
+            if (!nameInput) return;
+
+            const newGroup = {
+                id: 'g_' + Date.now(),
+                name: nameInput,
+                members: membersInput,
+                avatar: selectedAvatarKey,
+                assignedTasks: []
+            };
+
+            groups.push(newGroup);
+            renderUniverse();
+            closeAddGroupModal();
+            document.getElementById('inputGroupName').value = '';
+            document.getElementById('inputGroupMembers').value = '';
+            showToast(`Kumpulan "${nameInput}" berjaya ditambah!`, "success");
+        }
+
+        function showToast(message, type = "info") {
+            const toast = document.getElementById('toast');
+            const toastBody = document.getElementById('toastBody');
+            const toastIcon = document.getElementById('toastIcon');
+            const toastMessage = document.getElementById('toastMessage');
+
+            toastMessage.textContent = message;
+
+            if (type === "success") {
+                toastBody.className = "glass-panel px-4 py-3 rounded-2xl shadow-2xl border border-emerald-500/50 bg-emerald-950/80 text-emerald-200 flex items-center gap-3 text-sm";
+                toastIcon.className = "fa-solid fa-circle-check text-xl text-emerald-400";
+            } else if (type === "error") {
+                toastBody.className = "glass-panel px-4 py-3 rounded-2xl shadow-2xl border border-rose-500/50 bg-rose-950/80 text-rose-200 flex items-center gap-3 text-sm";
+                toastIcon.className = "fa-solid fa-circle-exclamation text-xl text-rose-400";
+            } else {
+                toastBody.className = "glass-panel px-4 py-3 rounded-2xl shadow-2xl border border-cyan-500/50 bg-slate-900/90 text-cyan-200 flex items-center gap-3 text-sm";
+                toastIcon.className = "fa-solid fa-circle-info text-xl text-cyan-400";
+            }
+
+            toast.classList.remove('translate-y-10', 'opacity-0', 'pointer-events-none');
+
+            setTimeout(() => {
+                toast.classList.add('translate-y-10', 'opacity-0', 'pointer-events-none');
+            }, 3000);
+        }
+
+        window.onload = function() {
+            initSpaceBackground();
+            renderUniverse();
+        };
+    </script>
+</body>
+</html>
